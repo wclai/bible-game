@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬可福音 RPG - Chapter 1 (V2 Design)</title>
+    <style>
+        :root {
+            --bg-color: #222;
+            --game-width: 800px;
+            --game-height: 600px;
+            --ui-border: #fff;
+            --ui-bg: #000;
+            --text-color: #fff;
+            --highlight: #ffff55;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'PMingLiU', 'MingLiU', monospace; /* 復古明體 */
+            overflow: hidden;
+            user-select: none;
+            -webkit-font-smoothing: none;
+        }
+
+        /* 遊戲主容器 */
+        #game-container {
+            position: relative;
+            width: var(--game-width);
+            height: var(--game-height);
+            background-color: #000;
+            border: 4px solid #555;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            overflow: hidden;
+        }
+
+        /* --- 背景層 (CSS Landscapes) --- */
+        #background-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            transition: opacity 0.5s;
+        }
+
+        /* 背景樣式定義 */
+        /* 1. 黑暗/旁白 */
+        .scene-dark { background: #000; }
+
+        /* 2. 曠野 (Desert) */
+        .scene-desert {
+            background: linear-gradient(to bottom, #87CEEB 0%, #e0c3fc 40%, #d2b48c 40%, #deb887 100%);
+        }
+        .scene-desert::after { /* 太陽 */
+            content: ''; position: absolute; top: 50px; right: 50px;
+            width: 60px; height: 60px; background: #ffd700; border-radius: 50%;
+            box-shadow: 0 0 20px #ffd700; opacity: 0.8;
+        }
+
+        /* 3. 約旦河 (River) */
+        .scene-river {
+            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 50%, #2E8B57 50%, #4682B4 100%);
+            overflow: hidden;
+        }
+        .scene-river::before { /* 水波紋動畫 */
+            content: ''; position: absolute; bottom: 0; left: -50%; width: 200%; height: 50%;
+            background: repeating-linear-gradient(
+                45deg, 
+                transparent, 
+                transparent 20px, 
+                rgba(255,255,255,0.1) 20px, 
+                rgba(255,255,255,0.1) 40px
+            );
+            animation: flow 10s linear infinite;
+        }
+
+        /* 4. 加利利海 (Sea) */
+        .scene-sea {
+            background: linear-gradient(to bottom, #1E90FF 0%, #000080 60%, #daa520 100%);
+        }
+
+        /* 5. 聖靈光芒 (Holy) */
+        .scene-holy {
+            background: #fff;
+            animation: holy-flash 2s ease-out forwards;
+        }
+
+        @keyframes flow { 0% { transform: translateX(0); } 100% { transform: translateX(-50px); } }
+        @keyframes holy-flash { 0% { background: #fff; opacity: 1; } 50% { background: #ffffcc; } 100% { background: #fff; opacity: 0.5; } }
+
+        /* --- 角色層 (CSS V2 Characters) --- */
+        #character-stage {
+            position: absolute;
+            top: 15%; /* 角色位置 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            /* 呼吸動畫 */
+            animation: breathe 3s ease-in-out infinite;
+        }
+
+        /* 角色基礎骨架 */
+        .char-base { position: relative; width: 64px; height: 90px; }
+        .head { position: relative; width: 30px; height: 34px; margin: 0 auto; z-index: 2; border-radius: 4px 4px 0 0; }
+        .body { position: relative; width: 44px; height: 56px; margin: -2px auto 0; z-index: 1; border-radius: 8px 8px 0 0; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .body::before, .body::after { /* 手臂 */
+            content: ''; position: absolute; top: 15px; width: 8px; height: 22px; border-radius: 4px;
+        }
+        .body::before { left: -6px; } .body::after { right: -6px; }
+
+        /* === 角色：耶穌 (Jesus) === */
+        .skin-jesus { background-color: #fbdcb6; box-shadow: -4px 0 0 #4e342e, 4px 0 0 #4e342e, 0 -4px 0 #4e342e; } /* 頭髮 */
+        .skin-jesus::after { content: ''; position: absolute; bottom: 0; left:0; width: 100%; height: 8px; background: #4e342e; } /* 鬍子 */
+        
+        .cloth-jesus {
+            background: linear-gradient(115deg, #f5f5f5 35%, #b71c1c 35%, #d32f2f 50%, #b71c1c 65%, #f5f5f5 65%);
+        }
+        .cloth-jesus::before, .cloth-jesus::after { background: #fbdcb6; } /* 膚色手 */
+
+        .halo { /* 光環 */
+            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            width: 60px; height: 60px; border: 2px solid #FFD700; border-radius: 50%;
+            background: rgba(255, 215, 0, 0.1); box-shadow: 0 0 15px #FFD700;
+            z-index: -1; animation: glow 2s infinite alternate;
+        }
+
+        /* === 角色：施洗約翰 (John) === */
+        .skin-john { background-color: #d2b48c; box-shadow: -5px 0 0 #3e2723, 5px 0 0 #3e2723, 0 -6px 0 #3e2723; } /* 亂髮 */
+        .skin-john::after { content: ''; position: absolute; bottom: -2px; left:-2px; width: 110%; height: 12px; background: #3e2723; border-radius: 0 0 10px 10px; } /* 大鬍子 */
+        
+        .cloth-john {
+            background: #8d6e63; /* 駝毛色 */
+            background-image: radial-gradient(#795548 15%, transparent 16%); /* 粗糙質感 */
+            background-size: 4px 4px;
+        }
+        .cloth-john::after { /* 皮帶 */
+            content: ''; position: absolute; top: 30px; left:0; width: 100%; height: 6px; background: #212121;
+        }
+
+        /* === 角色：彼得/漁夫 (Peter) === */
+        .skin-peter { background-color: #d9b99b; } 
+        .skin-peter::before { /* 頭巾 */
+            content: ''; position: absolute; top: -6px; left: -4px; width: 126%; height: 14px; background: #1565c0; border-radius: 4px 4px 0 0; z-index: 5;
+        }
+        .cloth-peter { background: #1976d2; } /* 藍衣 */
+        .cloth-peter::before, .cloth-peter::after { background: #d9b99b; }
+
+        /* 動畫與特效 */
+        @keyframes breathe { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
+        @keyframes glow { from { opacity: 0.6; box-shadow: 0 0 5px #FFD700; } to { opacity: 1; box-shadow: 0 0 20px #FFD700; } }
+
+        /* --- UI 層 (對話框) --- */
+        #ui-layer {
+            position: absolute;
+            bottom: 30px; left: 50px; right: 50px;
+            height: 160px;
+            background: var(--ui-bg);
+            border: 4px double var(--ui-border);
+            border-radius: 6px;
+            padding: 20px 30px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #speaker-box {
+            display: inline-block;
+            background: #000;
+            color: var(--highlight);
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 2px 8px;
+            border: 1px solid #555;
+            width: fit-content;
+            display: none; /* 預設隱藏 */
+        }
+
+        #text-box {
+            color: var(--text-color);
+            font-size: 22px;
+            line-height: 1.6;
+            flex-grow: 1;
+        }
+
+        .cursor {
+            display: inline-block; width: 12px; height: 20px; background: #fff;
+            vertical-align: bottom; animation: blink 0.5s infinite; margin-left: 5px; visibility: hidden;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* --- 開始畫面 --- */
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff;
+        }
+        #start-overlay h1 { font-size: 48px; color: var(--highlight); text-shadow: 4px 4px #555; margin-bottom: 10px; }
+        #start-overlay p { color: #aaa; margin-bottom: 50px; }
+        .press-key { animation: blink 1s infinite; font-size: 24px; border: 2px solid #fff; padding: 10px 20px; cursor: pointer; }
+        
+        /* 控制提示 */
+        #controls { position: absolute; top: 10px; right: 10px; color: #666; font-size: 12px; z-index: 200; text-align: right; }
+        .auto-on { color: #0f0; font-weight: bold; }
+
+        /* 手機響應 */
+        @media (max-width: 600px) {
+            #game-container { width: 100%; height: 100%; border: none; }
+            #ui-layer { bottom: 10px; left: 10px; right: 10px; height: 35%; padding: 15px; }
+            #text-box { font-size: 18px; }
+            #character-stage { top: 20%; width: 150px; height: 150px; }
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- 控制提示 -->
+    <div id="controls">
+        [Space] 下一句 | [BS] 上一句<br>
+        [A] 自動播放: <span id="auto-badge">OFF</span>
+    </div>
+
+    <!-- 背景層 -->
+    <div id="background-layer" class="scene-dark"></div>
+
+    <!-- 角色展示區 -->
+    <div id="character-stage">
+        <!-- 這裡會由 JS 動態插入 HTML 結構 -->
+    </div>
+
+    <!-- 對話框 -->
+    <div id="ui-layer">
+        <div id="speaker-box"></div>
+        <div id="text-box">
+            <span id="typewriter-text"></span>
+            <div class="cursor" id="cursor"></div>
+        </div>
+    </div>
+
+    <!-- 開始封面 -->
+    <div id="start-overlay" onclick="startGame()">
+        <h1>馬可福音 RPG</h1>
+        <p>第一章：福音的起頭</p>
+        <div class="press-key">點擊開始 / PRESS START</div>
+    </div>
+</div>
+
+<script>
+/* 
+ * --- 遊戲劇本 (Script Data) --- 
+ * 格式: 
+ * type: 'narr' (旁白) | 'talk' (對話)
+ * name: 說話者名字
+ * text: 內容
+ * bg: 背景 class
+ * char: 角色 ID ('jesus', 'john', 'peter', null)
+ * effect: 特殊效果
+ */
+const script = [
+    { type: 'narr', text: '神的兒子，耶穌基督福音的起頭。', bg: 'scene-dark', char: null },
+    { type: 'narr', text: '正如先知以賽亞書上這著說：', bg: 'scene-dark', char: null },
+    { type: 'narr', text: '「看哪，我要差遣我的使者在你前面，預備道路。」', bg: 'scene-dark', char: null },
+    
+    { type: 'narr', text: '場景：猶太的曠野', bg: 'scene-desert', char: null },
+    { type: 'talk', name: '施洗約翰', text: '在曠野有人聲喊著說：預備主的道，修直他的路！', bg: 'scene-desert', char: 'john' },
+    
+    { type: 'narr', text: '照這話，約翰來了，在曠野施洗，傳悔改的洗禮，使罪得赦。', bg: 'scene-desert', char: 'john' },
+    { type: 'narr', text: '猶太全地和耶路撒冷的人，都出去到約翰那裡，承認他們的罪，在約旦河受他的洗。', bg: 'scene-river', char: 'john' },
+    
+    { type: 'talk', name: '施洗約翰', text: '有一位在我以後來的，能力比我更大，我就是彎腰給他解鞋帶也是不配的。', bg: 'scene-river', char: 'john' },
+    { type: 'talk', name: '施洗約翰', text: '我是用水給你們施洗，他卻要用聖靈給你們施洗。', bg: 'scene-river', char: 'john' },
+
+    { type: 'narr', text: '那時，耶穌從加利利的拿撒勒來，在約旦河裡受了約翰的洗。', bg: 'scene-river', char: 'jesus' },
+    { type: 'narr', text: '他從水裡一上來，就看見天裂開了，聖靈彷彿鴿子，降在他身上。', bg: 'scene-holy', char: 'jesus' },
+    
+    { type: 'talk', name: '天上的聲音', text: '「你是我的愛子，我喜悅你。」', bg: 'scene-holy', char: 'jesus', effect: 'holy' },
+
+    { type: 'narr', text: '場景：加利利海邊', bg: 'scene-sea', char: null },
+    { type: 'narr', text: '耶穌順著加利利的海邊走，看見西門和西門的兄弟安得烈在海裡撒網；他們本是打魚的。', bg: 'scene-sea', char: 'peter' },
+    
+    { type: 'talk', name: '耶穌', text: '來跟從我，我要叫你們得人如得魚一樣。', bg: 'scene-sea', char: 'jesus' },
+    
+    { type: 'narr', text: '他們就立刻捨了網，跟從了他。', bg: 'scene-sea', char: 'peter' },
+    { type: 'narr', text: '（第一章 Demo 結束）', bg: 'scene-dark', char: null }
+];
+
+// --- 系統狀態 ---
+let currentLine = 0;
+let isTyping = false;
+let typeTimer = null;
+let autoPlay = false;
+let autoTimer = null;
+let audioCtx = null;
+
+// --- DOM 元素 ---
+const els = {
+    bg: document.getElementById('background-layer'),
+    stage: document.getElementById('character-stage'),
+    speaker: document.getElementById('speaker-box'),
+    text: document.getElementById('typewriter-text'),
+    cursor: document.getElementById('cursor'),
+    start: document.getElementById('start-overlay'),
+    autoBadge: document.getElementById('auto-badge')
+};
+
+// --- 音效引擎 (Web Audio API) ---
+const AudioEngine = {
+    init: () => {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    },
+    play: (freq, type, dur, vol=0.1) => {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + dur);
+    },
+    sfxType: () => AudioEngine.play(600 + Math.random()*200, 'square', 0.03, 0.05), // 打字聲
+    sfxNext: () => AudioEngine.play(150, 'triangle', 0.15, 0.1), // 換頁
+    sfxHoly: () => { // 神聖音效
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 1.0);
+        gain.gain.value = 0.05;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.5);
+    }
+};
+
+// --- 角色渲染器 (CSS Component Builder) ---
+function renderCharacter(charId) {
+    els.stage.innerHTML = ''; // 清空
+    if (!charId) return;
+
+    const charDiv = document.createElement('div');
+    charDiv.className = 'char-base';
+
+    // 根據 ID 組裝 HTML
+    let headClass = '', bodyClass = '', hasHalo = false;
+
+    if (charId === 'jesus') {
+        headClass = 'skin-jesus'; bodyClass = 'cloth-jesus'; hasHalo = true;
+    } else if (charId === 'john') {
+        headClass = 'skin-john'; bodyClass = 'cloth-john';
+    } else if (charId === 'peter') {
+        headClass = 'skin-peter'; bodyClass = 'cloth-peter';
+    }
+
+    // 構建 DOM
+    if (hasHalo) {
+        const halo = document.createElement('div');
+        halo.className = 'halo';
+        charDiv.appendChild(halo);
+    }
+
+    const head = document.createElement('div');
+    head.className = 'head ' + headClass;
+    
+    const body = document.createElement('div');
+    body.className = 'body ' + bodyClass;
+
+    charDiv.appendChild(head);
+    charDiv.appendChild(body);
+    els.stage.appendChild(charDiv);
+}
+
+// --- 核心邏輯 ---
+function startGame() {
+    AudioEngine.init();
+    els.start.style.display = 'none';
+    loadLine();
+}
+
+function loadLine() {
+    const data = script[currentLine];
+    
+    // 1. 設定背景
+    els.bg.className = data.bg;
+
+    // 2. 設定角色
+    renderCharacter(data.char);
+
+    // 3. UI 設定
+    els.text.innerHTML = '';
+    els.cursor.style.visibility = 'hidden';
+    
+    if (data.type === 'talk') {
+        els.speaker.style.display = 'inline-block';
+        els.speaker.innerText = data.name;
+    } else {
+        els.speaker.style.display = 'none';
+    }
+
+    // 4. 特效
+    if (data.effect === 'holy') AudioEngine.sfxHoly();
+
+    // 5. 開始打字
+    isTyping = true;
+    let idx = 0;
+    if (typeTimer) clearInterval(typeTimer);
+    
+    typeTimer = setInterval(() => {
+        els.text.innerText += data.text[idx];
+        if (idx % 2 === 0) AudioEngine.sfxType(); // 隔字發聲
+        idx++;
+        if (idx >= data.text.length) {
+            finishTyping();
+        }
+    }, 50); // 打字速度
+}
+
+function finishTyping() {
+    clearInterval(typeTimer);
+    isTyping = false;
+    els.text.innerText = script[currentLine].text;
+    els.cursor.style.visibility = 'visible';
+    
+    // 自動播放邏輯
+    if (autoPlay) {
+        const delay = 1500 + (script[currentLine].text.length * 100);
+        autoTimer = setTimeout(nextLine, delay);
+    }
+}
+
+function nextLine() {
+    if (isTyping) {
+        finishTyping();
+        return;
+    }
+    if (currentLine < script.length - 1) {
+        currentLine++;
+        AudioEngine.sfxNext();
+        loadLine();
+    }
+}
+
+function prevLine() {
+    if (currentLine > 0) {
+        currentLine--;
+        AudioEngine.sfxNext();
+        loadLine();
+    }
+}
+
+function toggleAuto() {
+    autoPlay = !autoPlay;
+    els.autoBadge.innerText = autoPlay ? 'ON' : 'OFF';
+    els.autoBadge.className = autoPlay ? 'auto-on' : '';
+    
+    if (autoPlay && !isTyping) nextLine();
+    else clearTimeout(autoTimer);
+}
+
+// --- 監聽器 ---
+window.addEventListener('keydown', (e) => {
+    if (els.start.style.display !== 'none') {
+        if (e.code === 'Space' || e.code === 'Enter') startGame();
+        return;
+    }
+    switch(e.code) {
+        case 'Space': case 'Enter': case 'KeyZ': nextLine(); break;
+        case 'Backspace': case 'ArrowLeft': prevLine(); break;
+        case 'KeyA': toggleAuto(); break;
+    }
+});
+
+// 點擊支援 (手機)
+document.getElementById('ui-layer').addEventListener('click', nextLine);
+document.getElementById('background-layer').addEventListener('click', nextLine);
+
+</script>
+</body>
+</html>

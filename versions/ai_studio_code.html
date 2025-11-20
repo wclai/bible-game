@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬可福音 RPG - Chapter 1</title>
+    <style>
+        :root {
+            --bg-color: #000;
+            --text-color: #fff;
+            --border-color: #fff;
+            --ui-blue: #0000aa;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'PMingLiU', 'MingLiU', 'Courier New', monospace; /* 復古字體 */
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* 遊戲容器 (4:3 比例) */
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background-color: var(--bg-color);
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            overflow: hidden;
+        }
+
+        /* 背景層 */
+        #background-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70%; /* 上半部顯示場景 */
+            transition: background 0.5s;
+            background: #000;
+        }
+
+        /* 角色層 */
+        #character-layer {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        /* CSS 像素人物繪製 */
+        .pixel-char {
+            width: 64px;
+            height: 80px;
+            position: relative;
+            animation: bounce 1s infinite steps(2);
+        }
+
+        /* 施洗約翰 (駝色) */
+        .char-john {
+            background: #8B4513;
+            box-shadow: inset 0 -10px 0 #000; /* 皮帶 */
+        }
+        .char-john::after {
+            content: ''; position: absolute; top:0; left:0; width:100%; height: 20px; background: #D2B48C; /* 臉 */
+        }
+
+        /* 耶穌 (白色 + 紅帶) */
+        .char-jesus {
+            background: #fff;
+            background: linear-gradient(120deg, #fff 40%, #b00 40%, #b00 60%, #fff 60%);
+        }
+        .char-jesus::after {
+            content: ''; position: absolute; top:0; left:0; width:100%; height: 20px; background: #F0E0D0; /* 臉 */
+        }
+
+        /* 漁夫 (藍色) */
+        .char-fisher {
+            background: #00a;
+        }
+        .char-fisher::after {
+            content: ''; position: absolute; top:0; left:0; width:100%; height: 20px; background: #D2B48C; /* 臉 */
+        }
+        .char-fisher::before {
+            content: ''; position: absolute; top:0; left:0; width:100%; height: 10px; background: #888; z-index:2; /* 頭巾 */
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        @keyframes flash {
+            0% { background-color: #fff; }
+            50% { background-color: #ff0; }
+            100% { background-color: #fff; }
+        }
+
+        /* 對話框 UI */
+        #message-box {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            height: 25%;
+            background-color: #000;
+            border: 4px double var(--border-color);
+            border-radius: 4px;
+            padding: 20px;
+            color: white;
+            font-size: 24px;
+            line-height: 1.5;
+            box-sizing: border-box;
+        }
+
+        #speaker-name {
+            color: #ffff55; /* 黃色名字 */
+            margin-bottom: 10px;
+            font-weight: bold;
+            display: block;
+        }
+
+        #text-content {
+            display: inline;
+        }
+
+        /* 閃爍游標 */
+        .cursor-triangle {
+            display: inline-block;
+            width: 0; 
+            height: 0; 
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid white;
+            animation: blink 1s infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+            visibility: hidden; /* 預設隱藏，打字完顯示 */
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* 開始畫面 */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 999;
+            text-align: center;
+        }
+        
+        #start-screen h1 {
+            font-size: 48px;
+            text-shadow: 4px 4px #555;
+            margin-bottom: 40px;
+        }
+
+        .blink-text {
+            animation: blink 0.8s infinite;
+            font-size: 24px;
+            margin-top: 20px;
+            color: #ffff55;
+        }
+
+        /* 控制提示 */
+        #controls-hint {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #888;
+            font-size: 12px;
+            z-index: 100;
+            text-align: right;
+        }
+
+        /* 響應式調整 (手機) */
+        @media (max-width: 600px) {
+            #game-container { width: 100%; height: 100%; border: none; }
+            #message-box { font-size: 18px; bottom: 10px; left: 10px; right: 10px; height: 35%;}
+            #character-layer { top: 15%; }
+        }
+
+        /* CSS 背景樣式 */
+        .bg-desert { background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 60%, #deb887 60%, #d2b48c 100%) !important; }
+        .bg-river { background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 60%, #2E8B57 60%, #1E90FF 80%) !important; }
+        .bg-sea { background: linear-gradient(to bottom, #1E90FF 0%, #000080 70%, #F4A460 70%) !important; }
+        .bg-dark { background: #000 !important; }
+        .bg-holy { background: #fff !important; animation: flash 0.2s ease-in-out 2; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="controls-hint">
+        [Space/點擊] 下一句 | [Backspace] 上一句<br>
+        [A] 自動播放: <span id="auto-status">OFF</span>
+    </div>
+
+    <div id="background-layer"></div>
+    
+    <div id="character-layer">
+        <div id="char-sprite" class=""></div>
+    </div>
+
+    <div id="message-box">
+        <span id="speaker-name"></span>
+        <div id="text-content"></div>
+        <div id="cursor" class="cursor-triangle"></div>
+    </div>
+
+    <div id="start-screen">
+        <h1>馬可福音 RPG</h1>
+        <p>第一章：預備道路與呼召</p>
+        <div class="blink-text">PRESS START / 點擊開始</div>
+    </div>
+</div>
+
+<script>
+/**
+ * 資料結構: 劇本
+ * type: 'narration' (旁白) | 'dialogue' (對話)
+ * name: 顯示的名字 (僅 dialogue 用)
+ * text: 內容
+ * bg: 背景樣式 class
+ * char: 角色樣式 class (空字串代表無人)
+ * sound: 特殊音效 'holy' 等
+ */
+const script = [
+    { type: 'narration', text: '神的兒子，耶穌基督福音的起頭。', bg: 'bg-dark', char: '' },
+    { type: 'narration', text: '正如先知以賽亞書上這著說：', bg: 'bg-dark', char: '' },
+    { type: 'narration', text: '「看哪，我要差遣我的使者在你前面，預備道路。」', bg: 'bg-dark', char: '' },
+    
+    { type: 'narration', text: '場景：曠野與約旦河', bg: 'bg-desert', char: '' },
+    { type: 'dialogue', name: '施洗約翰', text: '在曠野有人聲喊著說：預備主的道，修直他的路！', bg: 'bg-desert', char: 'char-john' },
+    
+    { type: 'narration', text: '照這話，約翰來了，在曠野施洗，傳悔改的洗禮，使罪得赦。', bg: 'bg-river', char: 'char-john' },
+    { type: 'narration', text: '猶太全地和耶路撒冷的人，都出去到約翰那裡，承認他們的罪，在約旦河受他的洗。', bg: 'bg-river', char: 'char-john' },
+    
+    { type: 'dialogue', name: '施洗約翰', text: '有一位在我以後來的，能力比我更大，我就是彎腰給他解鞋帶也是不配的。', bg: 'bg-river', char: 'char-john' },
+    { type: 'dialogue', name: '施洗約翰', text: '我是用水給你們施洗，他卻要用聖靈給你們施洗。', bg: 'bg-river', char: 'char-john' },
+
+    { type: 'narration', text: '那時，耶穌從加利利的拿撒勒來，在約旦河裡受了約翰的洗。', bg: 'bg-river', char: 'char-jesus' },
+    { type: 'narration', text: '他從水裡一上來，就看見天裂開了，聖靈彷彿鴿子，降在他身上。', bg: 'bg-river', char: 'char-jesus' },
+    
+    { type: 'dialogue', name: '天上的聲音', text: '你是我的愛子，我喜悅你。', bg: 'bg-holy', char: '', sound: 'holy' },
+
+    { type: 'narration', text: '場景：加利利海邊', bg: 'bg-sea', char: '' },
+    { type: 'narration', text: '耶穌順著加利利的海邊走，看見西門和西門的兄弟安得烈在海裡撒網；他們本是打魚的。', bg: 'bg-sea', char: 'char-fisher' },
+    
+    { type: 'dialogue', name: '耶穌', text: '來跟從我，我要叫你們得人如得魚一樣。', bg: 'bg-sea', char: 'char-jesus' },
+    
+    { type: 'narration', text: '他們就立刻捨了網，跟從了他。', bg: 'bg-sea', char: 'char-fisher' },
+    { type: 'narration', text: '（第一章 Demo 結束）', bg: 'bg-dark', char: '' }
+];
+
+// --- 系統變數 ---
+let currentIndex = 0;
+let isTyping = false;
+let isAutoPlay = false;
+let autoPlayTimer = null;
+let typeInterval = null;
+let audioCtx = null;
+
+// --- DOM 元素 ---
+const dom = {
+    container: document.getElementById('game-container'),
+    bgLayer: document.getElementById('background-layer'),
+    charSprite: document.getElementById('char-sprite'),
+    speakerName: document.getElementById('speaker-name'),
+    textContent: document.getElementById('text-content'),
+    cursor: document.getElementById('cursor'),
+    startScreen: document.getElementById('start-screen'),
+    autoStatus: document.getElementById('auto-status')
+};
+
+// --- 音效引擎 (Web Audio API) ---
+const Sound = {
+    init: () => {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    },
+    playTone: (freq, type, duration) => {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    },
+    playType: () => Sound.playTone(400 + Math.random()*50, 'square', 0.05), // 打字聲
+    playNext: () => Sound.playTone(150, 'triangle', 0.1), // 換頁聲
+    playHoly: () => { // 聖靈音效
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.5);
+        gain.gain.value = 0.1;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.0);
+    },
+    playBack: () => Sound.playTone(100, 'sawtooth', 0.1) // 悔棋聲
+};
+
+// --- 遊戲邏輯 ---
+
+function startGame() {
+    Sound.init();
+    dom.startScreen.style.display = 'none';
+    renderLine();
+}
+
+function renderLine() {
+    const data = script[currentIndex];
+    
+    // 停止舊的打字機
+    if (typeInterval) clearInterval(typeInterval);
+    isTyping = true;
+    dom.cursor.style.visibility = 'hidden';
+    dom.textContent.innerHTML = '';
+
+    // 設定背景
+    dom.bgLayer.className = data.bg;
+    
+    // 設定角色
+    dom.charSprite.className = 'pixel-char ' + data.char;
+    if(data.char === '') dom.charSprite.className = ''; // 隱藏
+
+    // 設定對話框名字
+    if (data.type === 'dialogue') {
+        dom.speakerName.innerText = data.name + ':';
+        dom.speakerName.style.display = 'block';
+    } else {
+        dom.speakerName.style.display = 'none';
+    }
+
+    // 特殊音效
+    if (data.sound === 'holy') Sound.playHoly();
+
+    // 打字機效果
+    let charIndex = 0;
+    const textArray = data.text.split('');
+    
+    typeInterval = setInterval(() => {
+        dom.textContent.innerHTML += textArray[charIndex];
+        
+        // 每兩個字發一次聲，避免太吵
+        if (charIndex % 2 === 0) Sound.playType();
+        
+        charIndex++;
+
+        if (charIndex >= textArray.length) {
+            finishTyping();
+        }
+    }, 50); // 打字速度
+}
+
+function finishTyping() {
+    clearInterval(typeInterval);
+    isTyping = false;
+    dom.textContent.innerHTML = script[currentIndex].text; // 確保完整顯示
+    dom.cursor.style.visibility = 'visible';
+
+    if (isAutoPlay && currentIndex < script.length - 1) {
+        clearTimeout(autoPlayTimer);
+        // 根據文字長度決定停留時間 (基礎2秒 + 每個字0.1秒)
+        const delay = 2000 + (script[currentIndex].text.length * 100);
+        autoPlayTimer = setTimeout(nextLine, delay);
+    }
+}
+
+function nextLine() {
+    if (isTyping) {
+        // 如果正在打字，按鍵會直接顯示全文字
+        finishTyping();
+        return;
+    }
+
+    if (currentIndex < script.length - 1) {
+        currentIndex++;
+        Sound.playNext();
+        renderLine();
+    } else {
+        // 結束或循環
+        // currentIndex = 0; renderLine(); // 如需循環
+    }
+}
+
+function prevLine() {
+    if (currentIndex > 0) {
+        currentIndex--;
+        Sound.playBack();
+        renderLine();
+    }
+}
+
+function toggleAuto() {
+    isAutoPlay = !isAutoPlay;
+    dom.autoStatus.innerText = isAutoPlay ? 'ON' : 'OFF';
+    dom.autoStatus.style.color = isAutoPlay ? '#0f0' : '#888';
+    
+    if (isAutoPlay && !isTyping) {
+        nextLine();
+    } else {
+        clearTimeout(autoPlayTimer);
+    }
+}
+
+// --- 輸入監聽 ---
+
+document.addEventListener('keydown', (e) => {
+    if (dom.startScreen.style.display !== 'none') {
+        startGame();
+        return;
+    }
+
+    switch(e.code) {
+        case 'Space':
+        case 'Enter':
+        case 'KeyZ':
+            nextLine();
+            break;
+        case 'ArrowLeft':
+        case 'Backspace':
+            prevLine();
+            break;
+        case 'KeyA':
+            toggleAuto();
+            break;
+    }
+});
+
+// 滑鼠/觸控支援
+dom.container.addEventListener('click', (e) => {
+    if (dom.startScreen.style.display !== 'none') {
+        startGame();
+    } else {
+        // 簡單處理：點擊畫面任何地方都算下一句
+        // 為了避免誤觸，可以排除 controls-hint 區域，這裡簡化處理
+        nextLine();
+    }
+});
+
+</script>
+</body>
+</html>
